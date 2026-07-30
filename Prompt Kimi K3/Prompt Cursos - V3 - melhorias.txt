@@ -1,0 +1,14 @@
+Atualize o projeto do jogo com as seguintes modificações
+
+1 - Ao iniciar o jogo trocar a musiquinha de Introdução para uma semelhante ao do "Super Mario", algo curto de 2 segundos;
+
+3 - adicione um som típico de jogo, para acerto semelhante ao do jogo "Super Mario";
+
+4 - adicione um som típico de jogo, para erro semelhante ao do jogo "Super Mario";
+
+5 - Ao final, no momento de apresentar o SCORE do jogador, colocar uma musiquinha de 2 segundos semelhante ao do encerramento do jogo "Super Mario";
+
+6 - Se ocorrer o Bonus de pontos por 100% do acerto, coloque um som adicional para o Bonus semelhante a algo de mesma situação do jogo "Super Mario"
+
+7 - Coloque uma opção para clicar com um ícone de um autofalantes com opção de ligar e desligar o som. O ícone deve mostrar se o som está ativados ou desligado.
+
