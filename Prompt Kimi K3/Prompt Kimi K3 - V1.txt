@@ -1,3 +1,12 @@
+*** IMPORTANTE ****
+
+Antes de rodar o prompt, é preciso fazer o upload de todo conteúdo que consta em: 
+
+https://github.com/brunojose1977/brunojose1977-Fiap-PostTech-2026-Revisao_Fase1/tree/main/Base-de-Conhecimento
+
+*** IMPORTANTE ****
+
+
 Como especialista em programação Python, PyGame, Considere todos os .PDFs e .PNGs enviados como base de conhecimento para a criação de um jogo em formato de Quis para testar Conhecimentos do Custo de Pós Graduação "PosTech da FIAP - IA para DEVs de 2026"
 
 Requisitos
