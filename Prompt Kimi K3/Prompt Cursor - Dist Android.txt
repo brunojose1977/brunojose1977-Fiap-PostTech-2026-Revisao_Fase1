@@ -1,0 +1,3 @@
+- Gere a versão binária Android que possa ser enviada para a loja "Play Store"
+- Atualize o README com o passo a passo para gerar o Binário APP
+- Atualize o README com o passo a passo para enviar o APP para a loja "Play Store"

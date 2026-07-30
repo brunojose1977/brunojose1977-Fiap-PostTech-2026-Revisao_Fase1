@@ -31,6 +31,14 @@ MANIFEST
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# ...mas o buildozer.spec (config do build Android) DEVE ser versionado.
+!buildozer.spec
+
+# Buildozer / python-for-android (artefatos de build Android)
+.buildozer/
+bin/
+*.keystore
+*.jks
 
 # Installer logs
 pip-log.txt

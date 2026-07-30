@@ -1,0 +1,3 @@
+# Dependências para executar o jogo no desktop (Windows, macOS, Linux).
+# pygame-ce fornece o módulo "pygame" usado no código.
+pygame-ce>=2.5.0

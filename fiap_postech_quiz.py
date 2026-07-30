@@ -45,9 +45,22 @@ COLOR_BUTTON = (60, 60, 100)
 COLOR_BUTTON_HOVER = (80, 80, 140)
 COLOR_FOOTER_BG = (10, 10, 20)
 
+# Detecta execução no Android (python-for-android define esta variável).
+IS_ANDROID = "ANDROID_ARGUMENT" in os.environ
+
 pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+if IS_ANDROID:
+    # No celular usamos a resolução lógica fixa (1200x800) com SCALED + FULLSCREEN.
+    # Assim o pygame escala automaticamente para a tela do aparelho mantendo as
+    # coordenadas de toque/clique idênticas às da versão desktop.
+    screen = pygame.display.set_mode(
+        (SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SCALED | pygame.FULLSCREEN
+    )
+else:
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
 pygame.display.set_caption("FIAP PosTech 2026 - IA para DEVs - Revisão Fase 1")
 clock = pygame.time.Clock()
 
@@ -1023,7 +1036,12 @@ class QuizGame:
                     self.toggle_sound()
                 for link_rect, url in self.footer_links:
                     if link_rect.collidepoint(mouse_pos):
-                        webbrowser.open(url, new=2)
+                        try:
+                            webbrowser.open(url, new=2)
+                        except Exception:
+                            # Alguns aparelhos Android não expõem um navegador
+                            # via webbrowser; ignorar mantém o jogo estável.
+                            pass
                         break
 
             pygame.display.flip()
@@ -1035,6 +1053,11 @@ class QuizGame:
 # =============================================================================
 # EXECUÇÃO
 # =============================================================================
-if __name__ == "__main__":
+def main():
+    """Ponto de entrada do jogo, reutilizado no desktop e no Android (main.py)."""
     game = QuizGame()
     game.run()
+
+
+if __name__ == "__main__":
+    main()
