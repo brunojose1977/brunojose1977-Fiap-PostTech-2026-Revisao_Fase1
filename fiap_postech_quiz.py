@@ -128,8 +128,8 @@ QUESTIONS_DB = [
 # =============================================================================
 # FUNÇÕES AUXILIARES
 # =============================================================================
-def create_sound(notes, volume=0.25):
-    """Cria um efeito sonoro a partir de notas (frequência, duração)."""
+def create_sound(notes, volume=0.25, waveform="square"):
+    """Cria um som chiptune original a partir de notas (frequência, duração)."""
     if not pygame.mixer.get_init():
         return None
 
@@ -140,13 +140,18 @@ def create_sound(notes, volume=0.25):
     for frequency, duration in notes:
         sample_count = int(sample_rate * duration)
         for index in range(sample_count):
-            # Pequeno fade-out evita estalos entre as notas.
-            fade = max(0.0, 1.0 - index / sample_count)
-            value = int(
-                amplitude
-                * fade
-                * math.sin(2 * math.pi * frequency * index / sample_rate)
-            )
+            if frequency == 0:
+                value = 0
+            else:
+                phase = math.sin(2 * math.pi * frequency * index / sample_rate)
+                wave = (1 if phase >= 0 else -1) if waveform == "square" else phase
+                # Ataque e fade curtos evitam estalos entre as notas.
+                attack = min(1.0, index / max(1, int(sample_rate * 0.005)))
+                release = min(
+                    1.0,
+                    (sample_count - index) / max(1, int(sample_rate * 0.025)),
+                )
+                value = int(amplitude * wave * attack * release)
             for _ in range(channels):
                 samples.append(value)
 
@@ -208,6 +213,64 @@ def draw_button(surface, text, font, rect, color, hover_color, text_color, hover
     draw_rounded_rect(surface, c, rect, 12)
     draw_text(surface, text, font, text_color, rect.center)
     return rect
+
+
+def draw_sound_button(surface, enabled):
+    """Desenha um alto-falante indicando se o áudio está ligado ou desligado."""
+    rect = pygame.Rect(SCREEN_WIDTH - 70, SCREEN_HEIGHT - 125, 50, 45)
+    hovered = rect.collidepoint(pygame.mouse.get_pos())
+    background = COLOR_BUTTON_HOVER if hovered else COLOR_BUTTON
+    icon_color = COLOR_SUCCESS if enabled else COLOR_ERROR
+    draw_rounded_rect(surface, background, rect, 10)
+    pygame.draw.rect(surface, COLOR_CARD_BORDER, rect, 2, border_radius=10)
+
+    # Corpo do alto-falante.
+    pygame.draw.rect(surface, icon_color, (rect.x + 10, rect.y + 17, 8, 11))
+    pygame.draw.polygon(
+        surface,
+        icon_color,
+        [
+            (rect.x + 18, rect.y + 17),
+            (rect.x + 28, rect.y + 10),
+            (rect.x + 28, rect.y + 35),
+            (rect.x + 18, rect.y + 28),
+        ],
+    )
+
+    if enabled:
+        pygame.draw.arc(
+            surface,
+            icon_color,
+            (rect.x + 23, rect.y + 12, 17, 21),
+            -math.pi / 3,
+            math.pi / 3,
+            2,
+        )
+        pygame.draw.arc(
+            surface,
+            icon_color,
+            (rect.x + 20, rect.y + 7, 27, 31),
+            -math.pi / 3,
+            math.pi / 3,
+            2,
+        )
+    else:
+        pygame.draw.line(
+            surface,
+            icon_color,
+            (rect.x + 34, rect.y + 15),
+            (rect.x + 44, rect.y + 30),
+            3,
+        )
+        pygame.draw.line(
+            surface,
+            icon_color,
+            (rect.x + 44, rect.y + 15),
+            (rect.x + 34, rect.y + 30),
+            3,
+        )
+    return rect
+
 
 def draw_footer(surface):
     """Desenha o rodapé e devolve as áreas dos links clicáveis."""
@@ -289,30 +352,72 @@ class QuizGame:
         self.review_index = 0
         self.footer_links = []
         self.points_per_hit = {"easy": 1000, "medium": 1250, "hard": 1500}
+        self.sound_enabled = True
+        self.results_sound_played = False
         self.intro_sound = None
         self.correct_sound = None
         self.wrong_sound = None
+        self.results_sound = None
+        self.bonus_sound = None
         self.setup_sounds()
 
     def setup_sounds(self):
-        """Prepara a introdução curta e os efeitos de acerto e erro."""
+        """Prepara melodias e efeitos originais em estilo chiptune 8-bit."""
         try:
             self.intro_sound = create_sound(
-                [(523.25, 0.35), (659.25, 0.35), (783.99, 0.40),
-                 (1046.50, 0.55), (783.99, 0.35)],
-                volume=0.18,
+                [
+                    (523.25, 0.18), (659.25, 0.18), (783.99, 0.18),
+                    (1046.50, 0.25), (0, 0.08), (783.99, 0.15),
+                    (880.00, 0.15), (987.77, 0.15), (1046.50, 0.30),
+                    (392.00, 0.18), (523.25, 0.20),
+                ],
+                volume=0.12,
             )
             self.correct_sound = create_sound(
-                [(659.25, 0.10), (783.99, 0.10), (1046.50, 0.22)]
+                [
+                    (659.25, 0.07), (783.99, 0.07),
+                    (987.77, 0.07), (1318.51, 0.20),
+                ],
+                volume=0.14,
             )
             self.wrong_sound = create_sound(
-                [(220.00, 0.16), (164.81, 0.28)], volume=0.22
+                [(311.13, 0.10), (233.08, 0.13), (174.61, 0.28)],
+                volume=0.14,
             )
-            if self.intro_sound:
+            self.results_sound = create_sound(
+                [
+                    (392.00, 0.15), (523.25, 0.15), (659.25, 0.15),
+                    (783.99, 0.20), (0, 0.08), (659.25, 0.15),
+                    (783.99, 0.15), (987.77, 0.18), (1046.50, 0.22),
+                    (1318.51, 0.32), (1046.50, 0.25),
+                ],
+                volume=0.12,
+            )
+            self.bonus_sound = create_sound(
+                [
+                    (1046.50, 0.08), (1318.51, 0.08), (1567.98, 0.08),
+                    (2093.00, 0.12), (1567.98, 0.08), (2093.00, 0.25),
+                ],
+                volume=0.13,
+            )
+            if self.sound_enabled and self.intro_sound:
                 self.intro_sound.play()
         except pygame.error:
             # O jogo continua normalmente em computadores sem dispositivo de áudio.
             self.intro_sound = self.correct_sound = self.wrong_sound = None
+            self.results_sound = self.bonus_sound = None
+
+    def play_sound(self, sound):
+        """Reproduz um som somente quando o áudio estiver ativado."""
+        if self.sound_enabled and sound:
+            return sound.play()
+        return None
+
+    def toggle_sound(self):
+        """Alterna o áudio e interrompe imediatamente os sons ao desligá-lo."""
+        self.sound_enabled = not self.sound_enabled
+        if not self.sound_enabled and pygame.mixer.get_init():
+            pygame.mixer.stop()
 
     def start_game(self, difficulty):
         self.difficulty = difficulty
@@ -334,6 +439,7 @@ class QuizGame:
         self.timer = 120
         self.timer_started = False
         self.feedback_state = None
+        self.results_sound_played = False
         self.state = "PLAYING"
 
     def next_question(self):
@@ -358,8 +464,7 @@ class QuizGame:
             self.score += 1
             self.category_stats[cat]["correct"] += 1
             self.feedback_state = "correct"
-            if self.correct_sound:
-                self.correct_sound.play()
+            self.play_sound(self.correct_sound)
         else:
             self.wrong_answers.append({
                 "question": q["question"],
@@ -369,8 +474,7 @@ class QuizGame:
                 "category": cat
             })
             self.feedback_state = "wrong"
-            if self.wrong_sound:
-                self.wrong_sound.play()
+            self.play_sound(self.wrong_sound)
 
         self.feedback_timer = pygame.time.get_ticks()
 
@@ -394,8 +498,7 @@ class QuizGame:
                         "explanation": q["explanation"],
                         "category": cat
                     })
-                    if self.wrong_sound:
-                        self.wrong_sound.play()
+                    self.play_sound(self.wrong_sound)
                     self.next_question()
 
     def draw_menu(self):
@@ -553,6 +656,12 @@ class QuizGame:
         base_points = correct * self.points_per_hit[self.difficulty]
         perfect_bonus = 2000 if total > 0 and correct == total else 0
         final_score = base_points + perfect_bonus
+
+        if not self.results_sound_played:
+            channel = self.play_sound(self.results_sound)
+            if channel and perfect_bonus and self.bonus_sound:
+                channel.queue(self.bonus_sound)
+            self.results_sound_played = True
 
         # Card principal
         card = pygame.Rect(100, 110, SCREEN_WIDTH - 200, 180)
@@ -760,7 +869,11 @@ class QuizGame:
                                 elif action == "menu":
                                     self.state = "MENU"
 
+            sound_button = draw_sound_button(screen, self.sound_enabled)
+
             if clicked:
+                if sound_button.collidepoint(mouse_pos):
+                    self.toggle_sound()
                 for link_rect, url in self.footer_links:
                     if link_rect.collidepoint(mouse_pos):
                         webbrowser.open(url, new=2)
