@@ -1,0 +1,10 @@
+Atualize o projeto do jogo com as seguintes modificações
+
+1 - Adicione uma imagem ao fundo da tela do jogo de uma imagem de robôs humanoides, semelhante ao do filme "Eu Robo" ou de um mosaico de imagens de robôs;
+
+2 - Estilo artístico da imagem ou arte, em formato artístico com cores e grafias típicas dos anos 80;
+
+3 - Aplicar na tela principal e na tela das perguntas;
+
+4 - Na tela das perguntas e score aplicar Alpha 0.40
+
