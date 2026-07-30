@@ -174,18 +174,18 @@ def create_sound(segments, volume=0.25):
                 phase += 2 * math.pi * frequency / sample_rate
                 time = index / sample_rate
                 modulation = (
-                    0.38 * math.sin(2 * math.pi * 31 * time)
-                    + 0.12 * math.sin(2 * math.pi * 73 * time)
+                    0.08 * math.sin(2 * math.pi * 8 * time)
+                    + 0.02 * math.sin(2 * math.pi * 19 * time)
                 )
                 carrier = math.sin(phase + modulation)
                 harmonic = math.sin(phase * 2.01 + modulation * 0.5)
                 metallic = math.sin(phase * 3.73 + modulation)
                 energy_hum = math.sin(phase * 0.5)
                 wave = (
-                    0.48 * carrier
-                    + 0.20 * harmonic
-                    + 0.20 * metallic
-                    + 0.12 * energy_hum
+                    0.86 * carrier
+                    + 0.10 * harmonic
+                    + 0.02 * metallic
+                    + 0.02 * energy_hum
                 )
 
                 # Envelope curto mantém o som limpo e com ataque eletrônico.
@@ -195,6 +195,37 @@ def create_sound(segments, volume=0.25):
                     (sample_count - index) / max(1, int(sample_rate * 0.035)),
                 )
                 value = int(amplitude * wave * attack * release)
+            for _ in range(channels):
+                samples.append(value)
+
+    return pygame.mixer.Sound(buffer=samples.tobytes())
+
+
+def create_crystal_sound(notes, volume=0.04):
+    """Sintetiza notas suaves com timbre cristalino e sem varreduras."""
+    if not pygame.mixer.get_init():
+        return None
+
+    sample_rate, _, channels = pygame.mixer.get_init()
+    samples = array("h")
+    amplitude = int(32767 * volume)
+
+    for frequency, duration in notes:
+        sample_count = int(sample_rate * duration)
+        for index in range(sample_count):
+            if frequency == 0:
+                value = 0
+            else:
+                progress = index / max(1, sample_count - 1)
+                phase = 2 * math.pi * frequency * index / sample_rate
+                attack = min(1.0, index / max(1, int(sample_rate * 0.012)))
+                decay = math.exp(-2.8 * progress)
+                wave = (
+                    0.74 * math.sin(phase)
+                    + 0.20 * math.sin(phase * 2.01)
+                    + 0.06 * math.sin(phase * 4.03)
+                )
+                value = int(amplitude * wave * attack * decay)
             for _ in range(channels):
                 samples.append(value)
 
@@ -423,46 +454,45 @@ class QuizGame:
         self.setup_sounds()
 
     def setup_sounds(self):
-        """Prepara áudio original de interface e armadura robótica futurista."""
+        """Prepara áudio eletrônico discreto para a interface do jogo."""
         try:
-            self.intro_sound = create_sound(
+            self.intro_sound = create_crystal_sound(
                 [
-                    (90, 180, 0.28), (180, 720, 0.32), (720, 360, 0.18),
-                    (0, 0, 0.08), (220, 880, 0.32), (880, 1320, 0.28),
-                    (0, 0, 0.08), (440, 1760, 0.28), (1760, 660, 0.18),
+                    (261.63, 0.28), (329.63, 0.28), (392.00, 0.28),
+                    (0, 0.12), (329.63, 0.24), (440.00, 0.24),
+                    (523.25, 0.32), (392.00, 0.24),
                 ],
-                volume=0.10,
+                volume=0.035,
             )
-            self.correct_sound = create_sound(
+            self.correct_sound = create_crystal_sound(
                 [
-                    (440, 1320, 0.12), (880, 2200, 0.14),
-                    (1400, 2800, 0.18),
+                    (659.25, 0.11), (880.00, 0.21),
                 ],
-                volume=0.12,
+                volume=0.045,
             )
             self.wrong_sound = create_sound(
                 [
-                    (980, 340, 0.16), (520, 180, 0.18),
-                    (260, 80, 0.26),
+                    (440, 300, 0.14), (300, 220, 0.16),
+                    (220, 160, 0.18),
                 ],
-                volume=0.12,
+                volume=0.03,
             )
             self.results_sound = create_sound(
                 [
-                    (70, 210, 0.30), (210, 840, 0.30), (0, 0, 0.08),
-                    (320, 1280, 0.28), (640, 1920, 0.28),
-                    (0, 0, 0.08), (900, 2700, 0.30),
-                    (1800, 720, 0.38),
+                    (130, 260, 0.30), (260, 520, 0.30), (0, 0, 0.10),
+                    (330, 660, 0.30), (440, 880, 0.30),
+                    (0, 0, 0.10), (550, 990, 0.30),
+                    (770, 550, 0.30),
                 ],
-                volume=0.10,
+                volume=0.025,
             )
             self.bonus_sound = create_sound(
                 [
-                    (480, 1920, 0.12), (960, 2880, 0.12),
-                    (1440, 3600, 0.14), (2200, 4200, 0.16),
-                    (3600, 1200, 0.22),
+                    (520, 780, 0.10), (660, 990, 0.10),
+                    (780, 1170, 0.12), (880, 1320, 0.12),
+                    (990, 1480, 0.16),
                 ],
-                volume=0.11,
+                volume=0.03,
             )
             if self.sound_enabled and self.intro_sound:
                 self.intro_sound.play()
