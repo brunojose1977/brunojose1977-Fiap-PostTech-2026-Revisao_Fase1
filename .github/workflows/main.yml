@@ -1,0 +1,49 @@
+name: Build Android (APK + AAB)
+
+# Gera os binários Android na nuvem (o Buildozer só roda em Linux).
+# Dispare manualmente em "Actions" > "Build Android (APK + AAB)" > "Run workflow"
+# ou publicando uma tag de versão (ex.: git tag v1.0.0 && git push origin v1.0.0).
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Buildozer (APK debug + AAB release)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Cache do Buildozer (SDK/NDK/builds)
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer
+            ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec', 'p4a-recipes/**') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      - name: Gerar APK de debug (para testar no celular)
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+      - name: Gerar AAB de release (para a Play Store)
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          command: buildozer android release
+          buildozer_version: stable
+
+      - name: Publicar binários como artefatos do workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: fiap-quiz-android
+          path: |
+            bin/*.apk
+            bin/*.aab
+          if-no-files-found: error
