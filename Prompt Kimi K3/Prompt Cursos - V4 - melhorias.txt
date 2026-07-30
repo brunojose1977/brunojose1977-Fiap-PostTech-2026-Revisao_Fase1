@@ -8,3 +8,6 @@ Atualize o projeto do jogo com as seguintes modificações
 
 4 - Na tela das perguntas e score aplicar Alpha 0.40
 
+5 - Adicionar um botão sair
+
+6 - Troque todos os sons e música para sons modernos e tecnológicos na temática robótica

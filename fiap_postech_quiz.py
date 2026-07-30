@@ -151,8 +151,8 @@ QUESTIONS_DB = [
 # =============================================================================
 # FUNÇÕES AUXILIARES
 # =============================================================================
-def create_sound(notes, volume=0.25, waveform="square"):
-    """Cria um som chiptune original a partir de notas (frequência, duração)."""
+def create_sound(segments, volume=0.25):
+    """Sintetiza áudio tecnológico com varreduras e modulação robótica."""
     if not pygame.mixer.get_init():
         return None
 
@@ -160,19 +160,39 @@ def create_sound(notes, volume=0.25, waveform="square"):
     samples = array("h")
     amplitude = int(32767 * volume)
 
-    for frequency, duration in notes:
+    for start_frequency, end_frequency, duration in segments:
         sample_count = int(sample_rate * duration)
+        phase = 0.0
         for index in range(sample_count):
+            progress = index / max(1, sample_count - 1)
+            frequency = start_frequency + (
+                end_frequency - start_frequency
+            ) * progress
             if frequency == 0:
                 value = 0
             else:
-                phase = math.sin(2 * math.pi * frequency * index / sample_rate)
-                wave = (1 if phase >= 0 else -1) if waveform == "square" else phase
-                # Ataque e fade curtos evitam estalos entre as notas.
+                phase += 2 * math.pi * frequency / sample_rate
+                time = index / sample_rate
+                modulation = (
+                    0.38 * math.sin(2 * math.pi * 31 * time)
+                    + 0.12 * math.sin(2 * math.pi * 73 * time)
+                )
+                carrier = math.sin(phase + modulation)
+                harmonic = math.sin(phase * 2.01 + modulation * 0.5)
+                metallic = math.sin(phase * 3.73 + modulation)
+                energy_hum = math.sin(phase * 0.5)
+                wave = (
+                    0.48 * carrier
+                    + 0.20 * harmonic
+                    + 0.20 * metallic
+                    + 0.12 * energy_hum
+                )
+
+                # Envelope curto mantém o som limpo e com ataque eletrônico.
                 attack = min(1.0, index / max(1, int(sample_rate * 0.005)))
                 release = min(
                     1.0,
-                    (sample_count - index) / max(1, int(sample_rate * 0.025)),
+                    (sample_count - index) / max(1, int(sample_rate * 0.035)),
                 )
                 value = int(amplitude * wave * attack * release)
             for _ in range(channels):
@@ -403,43 +423,46 @@ class QuizGame:
         self.setup_sounds()
 
     def setup_sounds(self):
-        """Prepara melodias e efeitos originais em estilo chiptune 8-bit."""
+        """Prepara áudio original de interface e armadura robótica futurista."""
         try:
             self.intro_sound = create_sound(
                 [
-                    (523.25, 0.18), (659.25, 0.18), (783.99, 0.18),
-                    (1046.50, 0.25), (0, 0.08), (783.99, 0.15),
-                    (880.00, 0.15), (987.77, 0.15), (1046.50, 0.30),
-                    (392.00, 0.18), (523.25, 0.20),
+                    (90, 180, 0.28), (180, 720, 0.32), (720, 360, 0.18),
+                    (0, 0, 0.08), (220, 880, 0.32), (880, 1320, 0.28),
+                    (0, 0, 0.08), (440, 1760, 0.28), (1760, 660, 0.18),
                 ],
-                volume=0.12,
+                volume=0.10,
             )
             self.correct_sound = create_sound(
                 [
-                    (659.25, 0.07), (783.99, 0.07),
-                    (987.77, 0.07), (1318.51, 0.20),
-                ],
-                volume=0.14,
-            )
-            self.wrong_sound = create_sound(
-                [(311.13, 0.10), (233.08, 0.13), (174.61, 0.28)],
-                volume=0.14,
-            )
-            self.results_sound = create_sound(
-                [
-                    (392.00, 0.15), (523.25, 0.15), (659.25, 0.15),
-                    (783.99, 0.20), (0, 0.08), (659.25, 0.15),
-                    (783.99, 0.15), (987.77, 0.18), (1046.50, 0.22),
-                    (1318.51, 0.32), (1046.50, 0.25),
+                    (440, 1320, 0.12), (880, 2200, 0.14),
+                    (1400, 2800, 0.18),
                 ],
                 volume=0.12,
             )
+            self.wrong_sound = create_sound(
+                [
+                    (980, 340, 0.16), (520, 180, 0.18),
+                    (260, 80, 0.26),
+                ],
+                volume=0.12,
+            )
+            self.results_sound = create_sound(
+                [
+                    (70, 210, 0.30), (210, 840, 0.30), (0, 0, 0.08),
+                    (320, 1280, 0.28), (640, 1920, 0.28),
+                    (0, 0, 0.08), (900, 2700, 0.30),
+                    (1800, 720, 0.38),
+                ],
+                volume=0.10,
+            )
             self.bonus_sound = create_sound(
                 [
-                    (1046.50, 0.08), (1318.51, 0.08), (1567.98, 0.08),
-                    (2093.00, 0.12), (1567.98, 0.08), (2093.00, 0.25),
+                    (480, 1920, 0.12), (960, 2880, 0.12),
+                    (1440, 3600, 0.14), (2200, 4200, 0.16),
+                    (3600, 1200, 0.22),
                 ],
-                volume=0.13,
+                volume=0.11,
             )
             if self.sound_enabled and self.intro_sound:
                 self.intro_sound.play()
@@ -557,12 +580,24 @@ class QuizGame:
         draw_text(screen, "Quiz Gamificado de Conhecimentos", font_text, COLOR_TEXT_DIM, 
                   (SCREEN_WIDTH//2, 260))
 
-        # Botão Iniciar
-        btn_rect = pygame.Rect(SCREEN_WIDTH//2 - 150, 350, 300, 60)
+        # Botões principais
+        btn_rect = pygame.Rect(SCREEN_WIDTH//2 - 250, 350, 300, 60)
+        btn_exit = pygame.Rect(SCREEN_WIDTH//2 + 70, 350, 180, 60)
         mouse_pos = pygame.mouse.get_pos()
         hovered = btn_rect.collidepoint(mouse_pos)
         draw_button(screen, "INICIAR JOGO", font_subtitle, btn_rect, 
                    COLOR_BUTTON, COLOR_BUTTON_HOVER, COLOR_TEXT, hovered)
+        exit_hovered = btn_exit.collidepoint(mouse_pos)
+        draw_button(
+            screen,
+            "SAIR",
+            font_subtitle,
+            btn_exit,
+            (120, 35, 55),
+            (175, 45, 70),
+            COLOR_TEXT,
+            exit_hovered,
+        )
 
         # Instruções
         instructions = [
@@ -577,7 +612,7 @@ class QuizGame:
                      (SCREEN_WIDTH//2, y_start + i * 35))
 
         self.footer_links = draw_footer(screen)
-        return btn_rect
+        return btn_rect, btn_exit
 
     def draw_difficulty(self):
         screen.fill(COLOR_BG)
@@ -608,8 +643,15 @@ class QuizGame:
                    (140, 40, 40), (180, 50, 50), COLOR_TEXT, h)
         buttons.append((btn_hard, "hard"))
 
+        btn_exit = pygame.Rect(SCREEN_WIDTH//2 - 100, 570, 200, 50)
+        h = btn_exit.collidepoint(mouse_pos)
+        draw_button(
+            screen, "SAIR", font_text, btn_exit,
+            (120, 35, 55), (175, 45, 70), COLOR_TEXT, h
+        )
+
         self.footer_links = draw_footer(screen)
-        return buttons
+        return buttons, btn_exit
 
     def draw_playing(self):
         draw_background(screen, faded=True)
@@ -681,8 +723,22 @@ class QuizGame:
             if pygame.time.get_ticks() - self.feedback_timer > 1200:
                 self.next_question()
 
+        btn_menu = pygame.Rect(210, 655, 180, 40)
+        h = btn_menu.collidepoint(mouse_pos)
+        draw_button(
+            screen, "MENU", font_small, btn_menu,
+            COLOR_BUTTON, COLOR_BUTTON_HOVER, COLOR_TEXT, h
+        )
+
+        btn_exit = pygame.Rect(410, 655, 140, 40)
+        h = btn_exit.collidepoint(mouse_pos)
+        draw_button(
+            screen, "SAIR", font_small, btn_exit,
+            (120, 35, 55), (175, 45, 70), COLOR_TEXT, h
+        )
+
         self.footer_links = draw_footer(screen)
-        return option_buttons
+        return option_buttons, btn_menu, btn_exit
 
     def draw_results(self):
         draw_background(screen, faded=True)
@@ -748,15 +804,22 @@ class QuizGame:
         # Botões
         mouse_pos = pygame.mouse.get_pos()
 
-        btn_review = pygame.Rect(SCREEN_WIDTH//2 - 260, 560, 250, 50)
+        btn_review = pygame.Rect(190, 560, 250, 50)
         h = btn_review.collidepoint(mouse_pos)
         draw_button(screen, "📋 Revisar Erros", font_small, btn_review,
                    COLOR_BUTTON, COLOR_BUTTON_HOVER, COLOR_TEXT, h)
 
-        btn_menu = pygame.Rect(SCREEN_WIDTH//2 + 10, 560, 250, 50)
+        btn_menu = pygame.Rect(475, 560, 250, 50)
         h = btn_menu.collidepoint(mouse_pos)
         draw_button(screen, "🔄 Jogar Novamente", font_small, btn_menu,
                    COLOR_BUTTON, COLOR_BUTTON_HOVER, COLOR_TEXT, h)
+
+        btn_exit = pygame.Rect(760, 560, 250, 50)
+        h = btn_exit.collidepoint(mouse_pos)
+        draw_button(
+            screen, "SAIR", font_small, btn_exit,
+            (120, 35, 55), (175, 45, 70), COLOR_TEXT, h
+        )
 
         # Conselho
         if pct_correct >= 80:
@@ -768,7 +831,7 @@ class QuizGame:
         draw_text(screen, msg, font_text, COLOR_ACCENT, (SCREEN_WIDTH//2, 650))
 
         self.footer_links = draw_footer(screen)
-        return btn_review, btn_menu
+        return btn_review, btn_menu, btn_exit
 
     def draw_review(self):
         screen.fill(COLOR_BG)
@@ -869,33 +932,46 @@ class QuizGame:
 
             # Renderização
             if self.state == "MENU":
-                btn = self.draw_menu()
-                if clicked and btn.collidepoint(mouse_pos):
-                    self.state = "DIFFICULTY"
+                btn, btn_exit = self.draw_menu()
+                if clicked:
+                    if btn.collidepoint(mouse_pos):
+                        self.state = "DIFFICULTY"
+                    elif btn_exit.collidepoint(mouse_pos):
+                        running = False
 
             elif self.state == "DIFFICULTY":
-                btns = self.draw_difficulty()
+                btns, btn_exit = self.draw_difficulty()
                 if clicked:
-                    for rect, diff in btns:
-                        if rect.collidepoint(mouse_pos):
-                            self.start_game(diff)
+                    if btn_exit.collidepoint(mouse_pos):
+                        running = False
+                    else:
+                        for rect, diff in btns:
+                            if rect.collidepoint(mouse_pos):
+                                self.start_game(diff)
 
             elif self.state == "PLAYING":
-                opts = self.draw_playing()
-                if clicked and self.feedback_state is None:
-                    for i, rect in enumerate(opts):
-                        if rect.collidepoint(mouse_pos):
-                            self.selected_option = i
-                            self.check_answer(i)
+                opts, btn_menu, btn_exit = self.draw_playing()
+                if clicked:
+                    if btn_exit.collidepoint(mouse_pos):
+                        running = False
+                    elif btn_menu.collidepoint(mouse_pos):
+                        self.state = "MENU"
+                    elif self.feedback_state is None:
+                        for i, rect in enumerate(opts):
+                            if rect.collidepoint(mouse_pos):
+                                self.selected_option = i
+                                self.check_answer(i)
 
             elif self.state == "RESULTS":
-                btn_review, btn_menu = self.draw_results()
+                btn_review, btn_menu, btn_exit = self.draw_results()
                 if clicked:
                     if btn_review.collidepoint(mouse_pos):
                         self.review_index = 0
                         self.state = "REVIEW"
                     elif btn_menu.collidepoint(mouse_pos):
                         self.state = "MENU"
+                    elif btn_exit.collidepoint(mouse_pos):
+                        running = False
 
             elif self.state == "REVIEW":
                 buttons, empty = self.draw_review()
