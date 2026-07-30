@@ -25,11 +25,15 @@ SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
 FPS = 60
 BACKGROUND_ALPHA = int(0.40 * 255)
-BACKGROUND_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "assets",
-    "robots_80s_background.png",
-)
+
+
+def resource_path(*parts):
+    """Resolve caminhos de recursos tanto em script quanto no executável."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, *parts)
+
+
+BACKGROUND_PATH = resource_path("assets", "robots_80s_background.png")
 
 # Cores
 COLOR_BG = (18, 18, 30)
