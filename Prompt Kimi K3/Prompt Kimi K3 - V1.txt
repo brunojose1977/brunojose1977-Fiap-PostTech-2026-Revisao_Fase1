@@ -1,0 +1,40 @@
+Como especialista em programação Python, PyGame, Considere todos os .PDFs e .PNGs enviados como base de conhecimento para a criação de um jogo em formato de Quis para testar Conhecimentos do Custo de Pós Graduação "PosTech da FIAP - IA para DEVs de 2026"
+
+Requisitos
+- Deve constar no Rodapé:
+	- Desenvolvido por Bruno José e Silva - brunojose1977@yahoo.com.br
+- Deve ser colocado no Rodapé um link para informações contendo
+  - Licença: 
+	- Apache 2.0
+  - Autor: 
+	- Bruno José e Silva
+	- brunojose1977@yahoo.com.br
+        - https://www.linkedin.com/in/bruno-jos%C3%A9-e-silva-61140a2a/
+  - Repositório
+	- https://github.com/brunojose1977/brunojose1977-Fiap-PostTech-2026-Revisao_Fase1
+
+Sobre o funcionamento do jogo
+- Estilo Gamificado em formato de Quis / Questionário de Perguntas e Respostas em formato CARDS;
+- Cada acerto gera um ponto
+- Pergunta de múltipla escolha com até 5 opções de resposta por pergunta
+- Deixar o jogador escolher o nível de dificuldade
+	- Fácil
+		- Até 10 perguntas
+		- Perguntas mais simples
+	- Médio
+		- Até 20 perguntas
+		- Perguntas de complexidade média
+	- Difícil 
+		- Até 30 perguntas
+		- Perguntas de complexidade média
+- É preciso colocar um tempo para responder cada pergunta de até 2 minutos;
+- Se não responder a tempo muda automaticamente para a próxima pergunta depois desse tempo;
+- Se responder segue para próxima pergunta imediatamente
+- No final mostrar os resultados 
+	- Quantidade de acertos
+	- Quantidade de erros
+	- % de acertos
+	- % de erros
+	- Em quais assuntos me sai melhor
+	- Em quais assuntos eu preciso reforçar os assuntos
+	- mostrar a listas da questões respondidas incorretamente, com a minha resposta e qual seria a resposta adequada. Explicar o conceito.
