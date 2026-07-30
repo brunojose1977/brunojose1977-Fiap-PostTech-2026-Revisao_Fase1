@@ -14,6 +14,8 @@ import pygame
 import random
 import sys
 import math
+import webbrowser
+from array import array
 
 # =============================================================================
 # CONFIGURAÇÕES GLOBAIS
@@ -36,6 +38,7 @@ COLOR_BUTTON = (60, 60, 100)
 COLOR_BUTTON_HOVER = (80, 80, 140)
 COLOR_FOOTER_BG = (10, 10, 20)
 
+pygame.mixer.pre_init(44100, -16, 2, 512)
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("FIAP PosTech 2026 - IA para DEVs - Revisão Fase 1")
@@ -125,6 +128,45 @@ QUESTIONS_DB = [
 # =============================================================================
 # FUNÇÕES AUXILIARES
 # =============================================================================
+def create_sound(notes, volume=0.25):
+    """Cria um efeito sonoro a partir de notas (frequência, duração)."""
+    if not pygame.mixer.get_init():
+        return None
+
+    sample_rate, _, channels = pygame.mixer.get_init()
+    samples = array("h")
+    amplitude = int(32767 * volume)
+
+    for frequency, duration in notes:
+        sample_count = int(sample_rate * duration)
+        for index in range(sample_count):
+            # Pequeno fade-out evita estalos entre as notas.
+            fade = max(0.0, 1.0 - index / sample_count)
+            value = int(
+                amplitude
+                * fade
+                * math.sin(2 * math.pi * frequency * index / sample_rate)
+            )
+            for _ in range(channels):
+                samples.append(value)
+
+    return pygame.mixer.Sound(buffer=samples.tobytes())
+
+
+def shuffle_question_options(question):
+    """Copia uma pergunta e embaralha suas alternativas preservando a resposta."""
+    shuffled_question = question.copy()
+    indexed_options = list(enumerate(question["options"]))
+    random.shuffle(indexed_options)
+    shuffled_question["options"] = [option for _, option in indexed_options]
+    shuffled_question["answer"] = next(
+        index
+        for index, (original_index, _) in enumerate(indexed_options)
+        if original_index == question["answer"]
+    )
+    return shuffled_question
+
+
 def draw_rounded_rect(surface, color, rect, radius):
     """Desenha um retângulo com cantos arredondados."""
     pygame.draw.rect(surface, color, rect, border_radius=radius)
@@ -168,7 +210,7 @@ def draw_button(surface, text, font, rect, color, hover_color, text_color, hover
     return rect
 
 def draw_footer(surface):
-    """Desenha o rodapé com informações do autor."""
+    """Desenha o rodapé e devolve as áreas dos links clicáveis."""
     footer_height = 70
     footer_rect = pygame.Rect(0, SCREEN_HEIGHT - footer_height, SCREEN_WIDTH, footer_height)
     draw_rounded_rect(surface, COLOR_FOOTER_BG, footer_rect, 0)
@@ -177,20 +219,53 @@ def draw_footer(surface):
     pygame.draw.line(surface, COLOR_CARD_BORDER, (20, SCREEN_HEIGHT - footer_height), 
                      (SCREEN_WIDTH - 20, SCREEN_HEIGHT - footer_height), 2)
 
-    # Textos do rodapé
     y_base = SCREEN_HEIGHT - footer_height + 12
-
     line1 = "Desenvolvido por Bruno José e Silva - brunojose1977@yahoo.com.br"
-    line2 = "Licença: Apache 2.0  |  Autor: Bruno José e Silva  |  Repositório: github.com/brunojose1977/brunojose1977-Fiap-PostTech-2026-Revisao_Fase1"
-    line3 = "LinkedIn: linkedin.com/in/bruno-josé-e-silva-61140a2a"
+    line2 = "Licença: Apache 2.0  |  Autor: Bruno José e Silva"
+    github_label = "GitHub: repositório do projeto"
+    linkedin_label = "LinkedIn: Bruno José e Silva"
+    separator = "  |  "
 
+    mouse_pos = pygame.mouse.get_pos()
     txt1 = font_tiny.render(line1, True, COLOR_TEXT_DIM)
     txt2 = font_tiny.render(line2, True, COLOR_TEXT_DIM)
-    txt3 = font_tiny.render(line3, True, COLOR_TEXT_DIM)
-
     surface.blit(txt1, (SCREEN_WIDTH//2 - txt1.get_width()//2, y_base))
     surface.blit(txt2, (SCREEN_WIDTH//2 - txt2.get_width()//2, y_base + 18))
-    surface.blit(txt3, (SCREEN_WIDTH//2 - txt3.get_width()//2, y_base + 36))
+
+    github_size = font_tiny.size(github_label)
+    linkedin_size = font_tiny.size(linkedin_label)
+    separator_size = font_tiny.size(separator)
+    total_width = github_size[0] + separator_size[0] + linkedin_size[0]
+    start_x = SCREEN_WIDTH//2 - total_width//2
+    link_y = y_base + 36
+
+    github_rect = pygame.Rect(start_x, link_y, *github_size)
+    linkedin_rect = pygame.Rect(
+        github_rect.right + separator_size[0], link_y, *linkedin_size
+    )
+    github_color = COLOR_SUCCESS if github_rect.collidepoint(mouse_pos) else COLOR_ACCENT
+    linkedin_color = COLOR_SUCCESS if linkedin_rect.collidepoint(mouse_pos) else COLOR_ACCENT
+
+    github_text = font_tiny.render(github_label, True, github_color)
+    separator_text = font_tiny.render(separator, True, COLOR_TEXT_DIM)
+    linkedin_text = font_tiny.render(linkedin_label, True, linkedin_color)
+    surface.blit(github_text, github_rect)
+    surface.blit(separator_text, (github_rect.right, link_y))
+    surface.blit(linkedin_text, linkedin_rect)
+    pygame.draw.line(surface, github_color, github_rect.bottomleft, github_rect.bottomright)
+    pygame.draw.line(surface, linkedin_color, linkedin_rect.bottomleft, linkedin_rect.bottomright)
+
+    return [
+        (
+            github_rect,
+            "https://github.com/brunojose1977/"
+            "brunojose1977-Fiap-PostTech-2026-Revisao_Fase1",
+        ),
+        (
+            linkedin_rect,
+            "https://www.linkedin.com/in/bruno-jos%C3%A9-e-silva-61140a2a/",
+        ),
+    ]
 
 # =============================================================================
 # CLASSE PRINCIPAL DO JOGO
@@ -212,6 +287,32 @@ class QuizGame:
         self.feedback_state = None  # None, "correct", "wrong"
         self.feedback_timer = 0
         self.review_index = 0
+        self.footer_links = []
+        self.points_per_hit = {"easy": 1000, "medium": 1250, "hard": 1500}
+        self.intro_sound = None
+        self.correct_sound = None
+        self.wrong_sound = None
+        self.setup_sounds()
+
+    def setup_sounds(self):
+        """Prepara a introdução curta e os efeitos de acerto e erro."""
+        try:
+            self.intro_sound = create_sound(
+                [(523.25, 0.35), (659.25, 0.35), (783.99, 0.40),
+                 (1046.50, 0.55), (783.99, 0.35)],
+                volume=0.18,
+            )
+            self.correct_sound = create_sound(
+                [(659.25, 0.10), (783.99, 0.10), (1046.50, 0.22)]
+            )
+            self.wrong_sound = create_sound(
+                [(220.00, 0.16), (164.81, 0.28)], volume=0.22
+            )
+            if self.intro_sound:
+                self.intro_sound.play()
+        except pygame.error:
+            # O jogo continua normalmente em computadores sem dispositivo de áudio.
+            self.intro_sound = self.correct_sound = self.wrong_sound = None
 
     def start_game(self, difficulty):
         self.difficulty = difficulty
@@ -220,7 +321,10 @@ class QuizGame:
         random.shuffle(filtered)
 
         limits = {"easy": 10, "medium": 20, "hard": 30}
-        self.questions = filtered[:limits[difficulty]]
+        self.questions = [
+            shuffle_question_options(question)
+            for question in filtered[:limits[difficulty]]
+        ]
 
         self.current_q_index = 0
         self.score = 0
@@ -254,6 +358,8 @@ class QuizGame:
             self.score += 1
             self.category_stats[cat]["correct"] += 1
             self.feedback_state = "correct"
+            if self.correct_sound:
+                self.correct_sound.play()
         else:
             self.wrong_answers.append({
                 "question": q["question"],
@@ -263,6 +369,8 @@ class QuizGame:
                 "category": cat
             })
             self.feedback_state = "wrong"
+            if self.wrong_sound:
+                self.wrong_sound.play()
 
         self.feedback_timer = pygame.time.get_ticks()
 
@@ -286,6 +394,8 @@ class QuizGame:
                         "explanation": q["explanation"],
                         "category": cat
                     })
+                    if self.wrong_sound:
+                        self.wrong_sound.play()
                     self.next_question()
 
     def draw_menu(self):
@@ -321,7 +431,7 @@ class QuizGame:
             draw_text(screen, inst, font_small, COLOR_TEXT_DIM, 
                      (SCREEN_WIDTH//2, y_start + i * 35))
 
-        draw_footer(screen)
+        self.footer_links = draw_footer(screen)
         return btn_rect
 
     def draw_difficulty(self):
@@ -353,7 +463,7 @@ class QuizGame:
                    (140, 40, 40), (180, 50, 50), COLOR_TEXT, h)
         buttons.append((btn_hard, "hard"))
 
-        draw_footer(screen)
+        self.footer_links = draw_footer(screen)
         return buttons
 
     def draw_playing(self):
@@ -426,7 +536,7 @@ class QuizGame:
             if pygame.time.get_ticks() - self.feedback_timer > 1200:
                 self.next_question()
 
-        draw_footer(screen)
+        self.footer_links = draw_footer(screen)
         return option_buttons
 
     def draw_results(self):
@@ -440,6 +550,9 @@ class QuizGame:
         wrong = total - correct
         pct_correct = (correct / total * 100) if total > 0 else 0
         pct_wrong = (wrong / total * 100) if total > 0 else 0
+        base_points = correct * self.points_per_hit[self.difficulty]
+        perfect_bonus = 2000 if total > 0 and correct == total else 0
+        final_score = base_points + perfect_bonus
 
         # Card principal
         card = pygame.Rect(100, 110, SCREEN_WIDTH - 200, 180)
@@ -450,6 +563,14 @@ class QuizGame:
                  font_subtitle, COLOR_SUCCESS, (SCREEN_WIDTH//2, 150))
         draw_text(screen, f"❌ Erros: {wrong} ({pct_wrong:.1f}%)", 
                  font_subtitle, COLOR_ERROR, (SCREEN_WIDTH//2, 200))
+        bonus_text = " + bônus perfeito de 2.000" if perfect_bonus else ""
+        draw_text(
+            screen,
+            f"🏆 SCORE FINAL: {final_score:,} pontos{bonus_text}".replace(",", "."),
+            font_text,
+            COLOR_WARNING,
+            (SCREEN_WIDTH//2, 255),
+        )
 
         # Desempenho por categoria
         y_cat = 320
@@ -495,7 +616,7 @@ class QuizGame:
             msg = "📚 Continue estudando! Revise os materiais da Fase 1."
         draw_text(screen, msg, font_text, COLOR_ACCENT, (SCREEN_WIDTH//2, 650))
 
-        draw_footer(screen)
+        self.footer_links = draw_footer(screen)
         return btn_review, btn_menu
 
     def draw_review(self):
@@ -507,8 +628,8 @@ class QuizGame:
             btn_back = pygame.Rect(SCREEN_WIDTH//2 - 100, 500, 200, 50)
             h = btn_back.collidepoint(pygame.mouse.get_pos())
             draw_button(screen, "Voltar", font_text, btn_back, COLOR_BUTTON, COLOR_BUTTON_HOVER, COLOR_TEXT, h)
-            draw_footer(screen)
-            return btn_back, True
+            self.footer_links = draw_footer(screen)
+            return [(btn_back, "menu")], True
 
         wa = self.wrong_answers[self.review_index]
 
@@ -571,7 +692,7 @@ class QuizGame:
         draw_button(screen, "🏠 Menu", font_small, btn_back, COLOR_BUTTON, COLOR_BUTTON_HOVER, COLOR_TEXT, h)
         buttons.append((btn_back, "menu"))
 
-        draw_footer(screen)
+        self.footer_links = draw_footer(screen)
         return buttons, False
 
     def run(self):
@@ -638,6 +759,12 @@ class QuizGame:
                                     self.review_index += 1
                                 elif action == "menu":
                                     self.state = "MENU"
+
+            if clicked:
+                for link_rect, url in self.footer_links:
+                    if link_rect.collidepoint(mouse_pos):
+                        webbrowser.open(url, new=2)
+                        break
 
             pygame.display.flip()
             clock.tick(FPS)
