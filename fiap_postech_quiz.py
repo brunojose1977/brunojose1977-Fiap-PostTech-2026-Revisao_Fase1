@@ -14,6 +14,7 @@ import pygame
 import random
 import sys
 import math
+import os
 import webbrowser
 from array import array
 
@@ -23,6 +24,12 @@ from array import array
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
 FPS = 60
+BACKGROUND_ALPHA = int(0.40 * 255)
+BACKGROUND_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "assets",
+    "robots_80s_background.png",
+)
 
 # Cores
 COLOR_BG = (18, 18, 30)
@@ -57,6 +64,22 @@ except:
     font_text = pygame.font.SysFont("arial", 32)
     font_small = pygame.font.SysFont("arial", 26)
     font_tiny = pygame.font.SysFont("arial", 22)
+
+
+def load_background():
+    """Carrega a arte de fundo em versões opaca e translúcida (alpha 0.40)."""
+    try:
+        image = pygame.image.load(BACKGROUND_PATH).convert()
+    except (pygame.error, FileNotFoundError):
+        return None, None
+
+    opaque = pygame.transform.smoothscale(image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    faded = opaque.copy()
+    faded.set_alpha(BACKGROUND_ALPHA)
+    return opaque, faded
+
+
+BACKGROUND_OPAQUE, BACKGROUND_FADED = load_background()
 
 # =============================================================================
 # BANCO DE PERGUNTAS (Baseado nos PDFs enviados)
@@ -175,6 +198,24 @@ def shuffle_question_options(question):
 def draw_rounded_rect(surface, color, rect, radius):
     """Desenha um retângulo com cantos arredondados."""
     pygame.draw.rect(surface, color, rect, border_radius=radius)
+
+
+def draw_background(surface, faded=False):
+    """Preenche a tela com a arte de robôs anos 80 ou com a cor padrão."""
+    surface.fill(COLOR_BG)
+    image = BACKGROUND_FADED if faded else BACKGROUND_OPAQUE
+    if image is not None:
+        surface.blit(image, (0, 0))
+
+
+def draw_scrim(surface, rect, alpha=180, radius=20):
+    """Escurece uma região para manter o texto legível sobre a arte de fundo."""
+    overlay = pygame.Surface(rect.size, pygame.SRCALPHA)
+    pygame.draw.rect(
+        overlay, (10, 10, 25, alpha), overlay.get_rect(), border_radius=radius
+    )
+    surface.blit(overlay, rect.topleft)
+
 
 def draw_text(surface, text, font, color, center_pos, max_width=None):
     """Desenha texto centralizado, com quebra de linha se necessário."""
@@ -502,7 +543,8 @@ class QuizGame:
                     self.next_question()
 
     def draw_menu(self):
-        screen.fill(COLOR_BG)
+        draw_background(screen)
+        draw_scrim(screen, pygame.Rect(140, 70, SCREEN_WIDTH - 280, 550))
 
         # Título animado
         self.anim_offset = math.sin(pygame.time.get_ticks() / 500) * 5
@@ -570,7 +612,7 @@ class QuizGame:
         return buttons
 
     def draw_playing(self):
-        screen.fill(COLOR_BG)
+        draw_background(screen, faded=True)
 
         if not self.timer_started:
             self.timer_started = True
@@ -643,7 +685,7 @@ class QuizGame:
         return option_buttons
 
     def draw_results(self):
-        screen.fill(COLOR_BG)
+        draw_background(screen, faded=True)
 
         draw_text(screen, "RESULTADOS FINAIS", font_title, COLOR_ACCENT, 
                   (SCREEN_WIDTH//2, 60))
